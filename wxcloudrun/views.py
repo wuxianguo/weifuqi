@@ -132,12 +132,15 @@ def generate_doubao_image(prompt):
     resp.raise_for_status()
     task_id = resp.json()["id"]
 
+    logging.info(f'task: [{task_id}]')
+
     # 2. 轮询任务状态
     for _ in range(20):  # 最多等20*3=60秒
         time.sleep(3)
         result_resp = requests.get(DOUBAO_RESULT_URL.format(task_id), headers=headers)
         result_resp.raise_for_status()
         result_data = result_resp.json()
+        logging.info(f'data: {result_data}')
         # 假设图片URL在 result_data["result"]["image_url"]
         if "result" in result_data and "image_url" in result_data["result"]:
             image_url = result_data["result"]["image_url"]
