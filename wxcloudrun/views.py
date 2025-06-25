@@ -7,6 +7,8 @@ from wxcloudrun.response import make_succ_empty_response, make_succ_response, ma
 import base64
 from io import BytesIO
 from PIL import Image, ImageDraw, ImageFont
+import requests
+import time
 
 
 @app.route('/')
@@ -78,37 +80,59 @@ def generate_image():
     scene = params.get('scene', '')
     keywords = params.get('keywords', '')
     template = params.get('template', '')
-    images = params.get('images', [])
     scene_name = params.get('scene_name', '')
     template_name = params.get('template_name', '')
 
-    # 创建一张白底图片
-    img = Image.new('RGB', (600, 400), color=(255, 255, 255))
-    draw = ImageDraw.Draw(img)
+    # 拼接prompt
+    prompt = f"{scene_name}，{template_name}，关键词：{keywords}"
+
     try:
-        font = ImageFont.truetype("arial.ttf", 24)
-    except:
-        font = ImageFont.load_default()
+        img_base64 = generate_doubao_image(prompt)
+        return make_succ_response({"image_base64": img_base64})
+    except Exception as e:
+        return make_err_response(str(e))
 
-    # 绘制文本内容
-    y = 30
-    draw.text((30, y), f"场景: {scene} ({scene_name})", fill=(0, 0, 0), font=font)
-    y += 40
-    draw.text((30, y), f"关键词: {keywords}", fill=(0, 0, 0), font=font)
-    y += 40
-    draw.text((30, y), f"模板: {template} ({template_name})", fill=(0, 0, 0), font=font)
-    y += 40
-    draw.text((30, y), f"图片数量: {len(images)}", fill=(0, 0, 0), font=font)
 
-    # 可以在此处扩展：如合成上传的图片等
+def generate_doubao_image(prompt):
+    DOUBAO_API_KEY = "f5bfd631-054f-4d92-8d83-6552830cd68d"
+    DOUBAO_SUBMIT_URL = "https://ark.cn-beijing.volces.com/api/v3/contents/generations/tasks"
+    DOUBAO_RESULT_URL = "https://ark.cn-beijing.volces.com/api/v3/contents/generations/tasks/{}"
 
-    # 保存到内存并转为base64
-    buffered = BytesIO()
-    img.save(buffered, format="PNG")
-    img_str = base64.b64encode(buffered.getvalue()).decode()
+    # 1. 提交生成任务
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {DOUBAO_API_KEY}"
+    }
+    payload = {
+        "model": "doubao-seedance-1-0-pro-250528",
+        "content": [
+            {
+                "type": "text",
+                "text": prompt
+            }
+        ]
+    }
+    resp = requests.post(DOUBAO_SUBMIT_URL, json=payload, headers=headers)
+    resp.raise_for_status()
+    task_id = resp.json()["id"]
 
-    # 返回base64字符串，前端可用 <img src="data:image/png;base64,xxx" /> 预览
-    return make_succ_response({"image_base64": img_str})
+    # 2. 轮询任务状态
+    for _ in range(20):  # 最多等20*3=60秒
+        time.sleep(3)
+        result_resp = requests.get(DOUBAO_RESULT_URL.format(task_id), headers=headers)
+        result_resp.raise_for_status()
+        result_data = result_resp.json()
+        # 假设图片URL在 result_data["result"]["image_url"]
+        if "result" in result_data and "image_url" in result_data["result"]:
+            image_url = result_data["result"]["image_url"]
+            break
+    else:
+        raise Exception("图片生成超时")
+
+    # 3. 下载图片并转为base64
+    img_resp = requests.get(image_url)
+    img_base64 = base64.b64encode(img_resp.content).decode()
+    return img_base64
 
 
 
