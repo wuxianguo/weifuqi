@@ -9,6 +9,13 @@ from io import BytesIO
 from PIL import Image, ImageDraw, ImageFont
 import requests
 import time
+import logging
+
+logging.basicConfig(
+    filename='server.log',
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)s %(name)s %(threadName)s : %(message)s'
+)
 
 
 @app.route('/')
@@ -108,10 +115,19 @@ def generate_doubao_image(prompt):
         "content": [
             {
                 "type": "text",
-                "text": prompt
+                "text": "{prompt}  --ratio 16:9"
+            },
+            {
+                "type": "image_url",
+                "image_url": {
+                    "url":"https://xxx.jpg"
+                }
             }
         ]
     }
+
+    
+
     resp = requests.post(DOUBAO_SUBMIT_URL, json=payload, headers=headers)
     resp.raise_for_status()
     task_id = resp.json()["id"]
