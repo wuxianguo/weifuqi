@@ -10,3 +10,4 @@ SQLAlchemy==1.4.29
 Werkzeug==2.2.2
 requests==2.31.0
 Pillow==10.3.0
+volcengine-python-sdk==4.0.2

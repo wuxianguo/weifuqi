@@ -10,12 +10,20 @@ from PIL import Image, ImageDraw, ImageFont
 import requests
 import time
 import logging
+import os
+from volcenginesdkarkruntime import Ark
+import json
 
 logging.basicConfig(
     filename='server.log',
     level=logging.INFO,
     format='%(asctime)s %(levelname)s %(name)s %(threadName)s : %(message)s'
 )
+console = logging.StreamHandler()
+console.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s %(levelname)s %(name)s %(threadName)s : %(message)s')
+console.setFormatter(formatter)
+logging.getLogger('').addHandler(console)
 
 
 @app.route('/')
@@ -94,66 +102,73 @@ def generate_image():
 
     # 拼接prompt
     prompt = f"{scene_name}，{template_name}，关键词：{keywords}"
+    logging.info(f"prompt: {prompt}")
 
     try:
-        img_base64 = generate_doubao_image(prompt)
-        return make_succ_response({"image_base64": img_base64})
+        response = generate_doubao_image(prompt)
+        return make_succ_response(response)
     except Exception as e:
+        logging.info(f"{str(e)}")
         return make_err_response(str(e))
 
 
 def generate_doubao_image(prompt):
     DOUBAO_API_KEY = "f5bfd631-054f-4d92-8d83-6552830cd68d"
-    DOUBAO_SUBMIT_URL = "https://ark.cn-beijing.volces.com/api/v3/contents/generations/tasks"
-    DOUBAO_RESULT_URL = "https://ark.cn-beijing.volces.com/api/v3/contents/generations/tasks/{}"
 
     # 1. 提交生成任务
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {DOUBAO_API_KEY}"
     }
-    payload = {
-        "model": "doubao-seedance-1-0-pro-250528",
-        "content": [
+   
+   # 请确保您已将 API Key 存储在环境变量 ARK_API_KEY 中
+    # 初始化Ark客户端，从环境变量中读取您的API Key
+    client = Ark(
+        # 此为默认路径，您可根据业务所在地域进行配置
+        base_url="https://ark.cn-beijing.volces.com/api/v3",
+        # 从环境变量中获取您的 API Key。此为默认方式，您可根据需要进行修改
+        api_key= DOUBAO_API_KEY,
+    )
+
+    imagesResponse = client.images.generate(
+        model="doubao-seedream-3-0-t2i-250415",
+        prompt=f"{prompt}",
+        size="1024x768",
+    )
+
+    #print(imagesResponse.data[0].url)
+    return parse_and_generate_response(imagesResponse)
+
+
+def parse_and_generate_response(resp):
+    # 解析各字段
+    model = resp.model
+    data = resp.data
+    usage = resp.usage
+
+    # 解析图片URL
+    image_url = None
+    if isinstance(data, list) and len(data) > 0:
+        image_url = data[0].url
+
+    # 下载图片并转为base64
+    img_base64 = None
+    if image_url:
+        img_resp = requests.get(image_url)
+        img_base64 = base64.b64encode(img_resp.content).decode()
+
+    # 组装返回信息
+    result = {
+        "model": model,
+        "data": [
             {
-                "type": "text",
-                "text": "{prompt}  --ratio 16:9"
-            },
-            {
-                "type": "image_url",
-                "image_url": {
-                    "url":"https://xxx.jpg"
-                }
+                "url": image_url,
+                "image_base64": img_base64
             }
-        ]
+        ],
+        "usage": usage.to_json()
     }
-
-    
-
-    resp = requests.post(DOUBAO_SUBMIT_URL, json=payload, headers=headers)
-    resp.raise_for_status()
-    task_id = resp.json()["id"]
-
-    logging.info(f'task: [{task_id}]')
-
-    # 2. 轮询任务状态
-    for _ in range(20):  # 最多等20*3=60秒
-        time.sleep(3)
-        result_resp = requests.get(DOUBAO_RESULT_URL.format(task_id), headers=headers)
-        result_resp.raise_for_status()
-        result_data = result_resp.json()
-        logging.info(f'data: {result_data}')
-        # 假设图片URL在 result_data["result"]["image_url"]
-        if "result" in result_data and "image_url" in result_data["result"]:
-            image_url = result_data["result"]["image_url"]
-            break
-    else:
-        raise Exception("图片生成超时")
-
-    # 3. 下载图片并转为base64
-    img_resp = requests.get(image_url)
-    img_base64 = base64.b64encode(img_resp.content).decode()
-    return img_base64
+    return result
 
 
 
