@@ -83,6 +83,8 @@ def generate_image():
     """
     :return: 生成图片的base64字符串
     """
+    logging.info(request.get_json())
+
     params = request.get_json()
     scene = params.get('scene', '')
     keywords = params.get('keywords', '')
