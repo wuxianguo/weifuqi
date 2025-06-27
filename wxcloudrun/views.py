@@ -135,8 +135,8 @@ def generate_doubao_image(prompt):
         prompt=f"{prompt}",
         size="1024x768",
     )
-
-    #print(imagesResponse.data[0].url)
+    print(imagesResponse)
+    print(f"url{imagesResponse.data[0].url}")
     return parse_and_generate_response(imagesResponse)
 
 
