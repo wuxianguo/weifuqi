@@ -1,6 +1,6 @@
 annotated-types==0.7.0
 anyio==4.5.2
-blinker==1.9.0
+blinker==1.8.2
 certifi==2025.6.15
 cffi==1.17.1
 charset-normalizer==3.4.2
