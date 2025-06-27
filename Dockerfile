@@ -24,7 +24,9 @@ WORKDIR /app
 
 # 安装依赖到指定的/install文件夹
 # 选用国内镜像源以提高下载速度
-RUN pip install --upgrade pip \
+RUN pip config set global.index-url http://mirrors.aliyun.com/pypi/simple/ \
+&& pip config set global.trusted-host http://mirrors.aliyun.com \
+&& pip install --upgrade pip \
 # pip install scipy 等数学包失败，可使用 apk add py3-scipy 进行， 参考安装 https://pkgs.alpinelinux.org/packages?name=py3-scipy&branch=v3.13
 && pip install --user -r requirements.txt\
 && ENV PATH="/root/.local/bin:$PATH"
