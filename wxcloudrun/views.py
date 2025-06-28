@@ -148,7 +148,7 @@ def generate_doubao_image(prompt):
     imagesResponse = client.images.generate(
         model="doubao-seedream-3-0-t2i-250415",
         prompt=f"{prompt}",
-        size="1024x768",
+        size="768*1024",
         watermark=False,
         response_format= "b64_json"
     )
