@@ -103,9 +103,13 @@ def generate_image():
     images = params.get('images', [])
     template_name = params.get('template_name', '')
 
-    blessing_prompt = f"请根据以下场景和关键词生成一段温馨的祝福语。场景：{scene_name}，关键词：{keywords}，风格：{template_name}"
+    blessing_prompt = f"""请根据以下场景和关键词生成一段温馨的祝福语。要求简短达意，60字以内。
+    场景：{scene_name}，
+    关键词：{keywords}，
+    风格：{template_name}
+    """
     blessing_text = generate_blessing_text(blessing_prompt)
-
+    logging.info(f"Generated text: {blessing_text}")
 
     # 拼接prompt
     image_prompt = f"""
@@ -114,6 +118,7 @@ def generate_image():
 
         # 主题: {scene_name}
         # 关键词: {keywords}
+        # 祝福语: {blessing_text}
         # 风格: {template_name}
         # 记忆图片: {images}
         
@@ -124,7 +129,9 @@ def generate_image():
 
     try:
         image_response = generate_doubao_image(image_prompt)
-        return make_succ_response(blessing_text, image_response)
+        
+        response = parse_and_generate_response(blessing_text, image_response)
+        return make_succ_response(response)
     except Exception as e:
         logging.info(f"{str(e)}")
         return make_err_response(str(e))
@@ -132,17 +139,24 @@ def generate_image():
 
 
 def generate_blessing_text(prompt):
-    # 这里用 Ark 的文本生成接口举例
-    client = Ark(
-        base_url="https://ark.cn-beijing.volces.com/api/v3",
-        api_key=DOUBAO_API_KEY,
-    )
-    resp = client.text.generate(
-        model="your-text-model",
-        prompt=prompt,
-        max_tokens=60
-    )
-    return resp.data[0].text
+    url = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {DOUBAO_API_KEY}"
+    }
+    data = {
+        "model": "doubao-seed-1-6-250615",
+        "messages": [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": prompt}
+        ],
+        "thinking.type": "false",
+        "max_tokens": 100,
+        "temperature": 2,
+    }
+    resp = requests.post(url, headers=headers, json=data)
+    resp.raise_for_status()
+    return resp.json()["choices"][0]["message"]["content"]
 
 
 
@@ -171,9 +185,8 @@ def generate_doubao_image(prompt):
         response_format= "b64_json"
     )
     # print(imagesResponse)
-    print(f"url{imagesResponse.data[0].url}")
-    return parse_and_generate_response(imagesResponse)
-
+    #print(f"url{imagesResponse.data[0].url}")
+    return imagesResponse
 
 def parse_and_generate_response(blessing_text:str, resp):
     # 解析各字段
