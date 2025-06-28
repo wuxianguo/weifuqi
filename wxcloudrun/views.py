@@ -27,6 +27,9 @@ console.setFormatter(formatter)
 logging.getLogger('').addHandler(console)
 
 
+
+DOUBAO_API_KEY = "f5bfd631-054f-4d92-8d83-6552830cd68d"
+
 @app.route('/')
 def index():
     """
@@ -95,18 +98,21 @@ def generate_image():
     logging.info(request.get_json())
 
     params = request.get_json()
-    scene = params.get('scene', '')
+    scene_name = params.get('scene_name', '')
     keywords = params.get('keywords', '')
-    template = params.get('template', '')
     images = params.get('images', [])
     template_name = params.get('template_name', '')
 
+    blessing_prompt = f"请根据以下场景和关键词生成一段温馨的祝福语。场景：{scene_name}，关键词：{keywords}，风格：{template_name}"
+    blessing_text = generate_blessing_text(blessing_prompt)
+
+
     # 拼接prompt
-    prompt = f"""
+    image_prompt = f"""
         请你结合以下内容生成一张祝福图片，图片要精美、温馨，表达心意，如果用户输入了记忆图片，生成结果中需要包含记忆元素。
         可以将记忆图片缩小嵌入，也可以提取部分内容表达。
 
-        # 主题: {scene}
+        # 主题: {scene_name}
         # 关键词: {keywords}
         # 风格: {template_name}
         # 记忆图片: {images}
@@ -114,21 +120,33 @@ def generate_image():
         在生成图片时，我们可以根据节日主题与关键词撰写一小段祝福话语，体现心意。然后将心意内容附加到图片的合适位置中。
         保持祝福图片的整体排版优雅美观。
     """
-    logging.info(f"prompt: {prompt}")
+    logging.info(f"prompt: {image_prompt}")
 
     try:
-        response = generate_doubao_image(prompt)
-        return make_succ_response(response)
+        image_response = generate_doubao_image(image_prompt)
+        return make_succ_response(blessing_text, image_response)
     except Exception as e:
         logging.info(f"{str(e)}")
         return make_err_response(str(e))
 
 
+
+def generate_blessing_text(prompt):
+    # 这里用 Ark 的文本生成接口举例
+    client = Ark(
+        base_url="https://ark.cn-beijing.volces.com/api/v3",
+        api_key=DOUBAO_API_KEY,
+    )
+    resp = client.text.generate(
+        model="your-text-model",
+        prompt=prompt,
+        max_tokens=60
+    )
+    return resp.data[0].text
+
+
+
 def generate_doubao_image(prompt):
-    DOUBAO_API_KEY = "f5bfd631-054f-4d92-8d83-6552830cd68d"
-
-  
-
 
     # 1. 提交生成任务
     headers = {
@@ -157,7 +175,7 @@ def generate_doubao_image(prompt):
     return parse_and_generate_response(imagesResponse)
 
 
-def parse_and_generate_response(resp):
+def parse_and_generate_response(blessing_text:str, resp):
     # 解析各字段
     model = resp.model
     data = resp.data
@@ -207,6 +225,7 @@ def parse_and_generate_response(resp):
         "model": model,
         "data": [
             {
+                "text": blessing_text,
                 "url": image_url,
                 "size": len(img_bytes),
                 "bytes": img_base64
