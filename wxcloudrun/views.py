@@ -149,6 +149,7 @@ def generate_doubao_image(prompt):
         model="doubao-seedream-3-0-t2i-250415",
         prompt=f"{prompt}",
         size="1024x768",
+        watermark=False
     )
     print(imagesResponse)
     print(f"url{imagesResponse.data[0].url}")
@@ -192,7 +193,8 @@ def parse_and_generate_response(resp):
         "data": [
             {
                 "url": image_local_url,
-                "size": len(img_bytes)
+                "size": len(img_bytes),
+                "bytes": img_base64
             }
         ],
         "usage": usage.to_json()
