@@ -149,9 +149,10 @@ def generate_doubao_image(prompt):
         model="doubao-seedream-3-0-t2i-250415",
         prompt=f"{prompt}",
         size="1024x768",
-        watermark=False
+        watermark=False,
+        response_format= "b64_json"
     )
-    print(imagesResponse)
+    # print(imagesResponse)
     print(f"url{imagesResponse.data[0].url}")
     return parse_and_generate_response(imagesResponse)
 
@@ -161,19 +162,21 @@ def parse_and_generate_response(resp):
     model = resp.model
     data = resp.data
     usage = resp.usage
+    img_base64 = None
+
 
     # 解析图片URL
     image_url = None
     if isinstance(data, list) and len(data) > 0:
         image_url = data[0].url
+        img_base64 = data[0].b64_json
 
     # 下载图片并转为base64
-    img_base64 = None
     image_local_url = None
     if image_url:
         img_resp = requests.get(image_url)
         img_bytes = img_resp.content
-        img_base64 = base64.b64encode(img_bytes).decode()
+        # img_base64 = base64.b64encode(img_bytes).decode()
         # 保存到本地
         ts = int(time.time() * 1000)
         rand = random.randint(1000, 9999)
@@ -187,12 +190,24 @@ def parse_and_generate_response(resp):
         # 生成可访问的url
         image_local_url = f"/static/images/{filename}"
 
+    if img_base64:
+        img_bytes = base64.b64decode(img_base64)
+        ts = int(time.time() * 1000)
+        rand = random.randint(1000, 9999)
+        filename = f"{ts}_{rand}.png"
+        save_dir = os.path.join(os.path.dirname(__file__), 'static', 'images')
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
+        save_path = os.path.join(save_dir, filename)
+        with open(save_path, 'wb') as f:
+            f.write(img_bytes)
+
     # 组装返回信息
     result = {
         "model": model,
         "data": [
             {
-                "url": image_local_url,
+                "url": image_url,
                 "size": len(img_bytes),
                 "bytes": img_base64
             }
