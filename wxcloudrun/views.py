@@ -13,6 +13,7 @@ import logging
 import os
 from volcenginesdkarkruntime import Ark
 import json
+import random
 
 logging.basicConfig(
     filename='server.log',
@@ -153,17 +154,31 @@ def parse_and_generate_response(resp):
 
     # 下载图片并转为base64
     img_base64 = None
+    image_local_url = None
     if image_url:
         img_resp = requests.get(image_url)
-        img_base64 = base64.b64encode(img_resp.content).decode()
+        img_bytes = img_resp.content
+        img_base64 = base64.b64encode(img_bytes).decode()
+        # 保存到本地
+        ts = int(time.time() * 1000)
+        rand = random.randint(1000, 9999)
+        filename = f"{ts}_{rand}.png"
+        save_dir = os.path.join(os.path.dirname(__file__), 'static', 'images')
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
+        save_path = os.path.join(save_dir, filename)
+        with open(save_path, 'wb') as f:
+            f.write(img_bytes)
+        # 生成可访问的url
+        image_local_url = f"/static/images/{filename}"
 
     # 组装返回信息
     result = {
         "model": model,
         "data": [
             {
-                "url": image_url,
-                "image_base64": img_base64
+                "url": image_local_url,
+                "size": len(img_bytes)
             }
         ],
         "usage": usage.to_json()
