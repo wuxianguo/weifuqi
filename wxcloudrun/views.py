@@ -98,11 +98,22 @@ def generate_image():
     scene = params.get('scene', '')
     keywords = params.get('keywords', '')
     template = params.get('template', '')
-    scene_name = params.get('scene_name', '')
+    images = params.get('images', [])
     template_name = params.get('template_name', '')
 
     # 拼接prompt
-    prompt = f"{scene_name}，{template_name}，关键词：{keywords}"
+    prompt = f"""
+        请你结合以下内容生成一张祝福图片，图片要精美、温馨，表达心意，如果用户输入了记忆图片，生成结果中需要包含记忆元素。
+        可以将记忆图片缩小嵌入，也可以提取部分内容表达。
+
+        # 主题: {scene}
+        # 关键词: {keywords}
+        # 风格: {template_name}
+        # 记忆图片: {images}
+        
+        在生成图片时，我们可以根据节日主题与关键词撰写一小段祝福话语，体现心意。然后将心意内容附加到图片的合适位置中。
+        保持祝福图片的整体排版优雅美观。
+    """
     logging.info(f"prompt: {prompt}")
 
     try:
@@ -115,6 +126,9 @@ def generate_image():
 
 def generate_doubao_image(prompt):
     DOUBAO_API_KEY = "f5bfd631-054f-4d92-8d83-6552830cd68d"
+
+  
+
 
     # 1. 提交生成任务
     headers = {
