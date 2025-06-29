@@ -90,17 +90,14 @@ def get_count():
     return make_succ_response(0) if counter is None else make_succ_response(counter.count)
 
 
-@app.route('/api/generate', methods=['POST'])
-def generate_image():
+@app.route('/api/generate_text', methods=['POST'])
+def generate_text():
     """
-    :return: 生成图片的base64字符串
+    :return: 生成祝福语文本
     """
-    logging.info(request.get_json())
-
     params = request.get_json()
     scene_name = params.get('scene_name', '')
     keywords = params.get('keywords', '')
-    images = params.get('images', [])
     template_name = params.get('template_name', '')
 
     blessing_prompt = f"""请根据以下场景和关键词生成一段温馨的祝福语。要求简短达意，60字以内。
@@ -108,10 +105,29 @@ def generate_image():
     关键词：{keywords}，
     风格：{template_name}
     """
-    blessing_text = generate_blessing_text(blessing_prompt)
-    logging.info(f"Generated text: {blessing_text}")
+    try:
+        blessing_text = generate_blessing_text(blessing_prompt)
+        return make_succ_response({"blessing_text": blessing_text})
+    except Exception as e:
+        logging.info(f"generate_text error: {str(e)}")
+        return make_err_response(str(e))
 
-    # 拼接prompt
+
+@app.route('/api/generate_image', methods=['POST'])
+def generate_image_only():
+    """
+    :return: 生成图片的base64字符串（需要传入blessing_text）
+    """
+    params = request.get_json()
+    scene_name = params.get('scene_name', '')
+    keywords = params.get('keywords', '')
+    images = params.get('images', [])
+    template_name = params.get('template_name', '')
+    blessing_text = params.get('blessing_text', '')
+
+    if not blessing_text:
+        return make_err_response('缺少blessing_text参数')
+
     image_prompt = f"""
         请你结合以下内容生成一张祝福图片，图片要精美、温馨，表达心意，如果用户输入了记忆图片，生成结果中需要包含记忆元素。
         可以将记忆图片缩小嵌入，也可以提取部分内容表达。
@@ -125,17 +141,13 @@ def generate_image():
         在生成图片时，我们可以根据节日主题与关键词撰写一小段祝福话语，体现心意。然后将心意内容附加到图片的合适位置中。
         保持祝福图片的整体排版优雅美观。
     """
-    logging.info(f"prompt: {image_prompt}")
-
     try:
         image_response = generate_doubao_image(image_prompt)
-        
         response = parse_and_generate_response(blessing_text, image_response)
         return make_succ_response(response)
     except Exception as e:
-        logging.info(f"{str(e)}")
+        logging.info(f"generate_image_only error: {str(e)}")
         return make_err_response(str(e))
-
 
 
 def generate_blessing_text(prompt):
